@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <string name="app_name">Syncthing</string>
+    <string name="app_name">Syncthing-109</string>
+    <string name="accessibility_description">没有其他任何功能，仅为了提升应用等级添加无障碍权限，用于增强后台运行稳定性，帮助应用免于在温控时被杀-by 109</string>
 
-    <string name="app_description">An open, trustworthy and decentralized file synchronization application.</string>
+    <string name="app_description">An open, trustworthy and decentralized file synchronization application.在1.28.1官方最后一个版本上增加了双保活机制</string>
 
     <!-- FirstStartActivity -->
 

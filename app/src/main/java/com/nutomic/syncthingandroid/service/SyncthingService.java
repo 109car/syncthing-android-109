@@ -27,11 +27,18 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.inject.Inject;
 
+import androidx.work.*;
+import android.content.Context;
+import androidx.work.WorkManager;
+import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.PeriodicWorkRequest;
+
 /**
  * Holds the native syncthing instance and provides an API to access it.
  */
 public class SyncthingService extends Service {
-
+	
     private static final String TAG = "SyncthingService";
 
     /**
@@ -187,6 +194,7 @@ public class SyncthingService extends Service {
      */
     @Override
     public void onCreate() {
+        scheduleKeepAliveTask(this);
         Log.v(TAG, "onCreate");
         super.onCreate();
         ((SyncthingApp) getApplication()).component().inject(this);
@@ -706,5 +714,24 @@ public class SyncthingService extends Service {
             launchStartupTask();
         });
         return true;
+    }
+
+private void scheduleKeepAliveTask(Context context) {
+    Constraints constraints = new Constraints.Builder()
+            .setRequiresBatteryNotLow(false)
+            .setRequiresDeviceIdle(false)
+            .build();
+
+    PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
+            KeepAliveWorker.class,
+            15, java.util.concurrent.TimeUnit.MINUTES)
+            .setConstraints(constraints)
+            .build();
+
+    WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "KeepSyncthingAlive",
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+    );
     }
 }

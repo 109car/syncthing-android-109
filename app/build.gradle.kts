@@ -15,6 +15,7 @@ dependencies {
     implementation("com.annimon:stream:1.2.2")
     implementation("com.android.volley:volley:1.2.1")
     implementation("commons-io:commons-io:2.11.0")
+     implementation("androidx.work:work-runtime:2.9.0")
 
     implementation("com.journeyapps:zxing-android-embedded:4.3.0") {
         isTransitive = false
@@ -45,7 +46,7 @@ android {
         minSdk = 21
         targetSdk = 33
         versionCode = 4395
-        versionName = "1.28.1"
+        versionName = "1.28.1-109 KAL"
         testApplicationId = "com.nutomic.syncthingandroid.test"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
