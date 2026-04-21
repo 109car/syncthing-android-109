@@ -1,62 +1,50 @@
-官方版本描述请移步到官方存档仓库
+# syncthing-android-109
 
-由于淘宝等3A大作APP极其耗资源，每次打开淘宝稍微买个东西手机就巨热，然后会触发华为的杀后台机制，应该是doze啥的，导致syncthing一天要被杀好几十回服务，很难受，我就是需要它无感在后台运行。
-上个月找了不少方法保活syncthing，都不太行，最终找到automate，通过automate的流程发广播来保活，但是也有个问题，automate的流程你让它响应快一点呢它一直很sharp的在那检测，一样耗电，隔30分钟呢又让我觉得很膈应，而且automate也需要打开无障碍来保活。开始我也不知道，没打开无障碍，automate一样被杀的死透透的。
-后来看到GKD为了跳广告打开了无障碍，后面才知道automate也需要打开无障碍才能保活。
+基于 `syncthing-android` 的个人修改版，主要针对 **HarmonyOS / Android 后台保活与恢复能力** 做了增强，重点面向 12GB 内存设备上主进程被系统回收、无障碍守护失效等问题。
 
-然后，用了几天，不是很爽，automate也占一个通知栏，你把他隐藏了呢，我也不知道有没有在给syncthing保活。
-特么syncthing不是开源吗，我自己改个算球。
+## 主要改动
 
-我是小白，完全不懂，早年有点basic，html，asp的基础，已经八百年没编过程。
+- 将无障碍守护服务拆分到独立 `:guard` 进程
+- 新增 `RestartScheduler + RestartReceiver` 恢复链
+- 为 `SyncthingService` 增加 `onTaskRemoved()` 与 `onDestroy()` 自愈逻辑
+- 保留 `KeepAliveWorker`，当前采用更保守实现，避免启动风暴
+- 增加关键恢复日志，便于实机定位问题
 
-这个版本完全是由AI帮我编完的。
-刚开始只用了无障碍保活，用的是deepseek帮写的，但是发现没用，还是被杀。
-后面干脆加上workermanager的15分钟保活，再加上无障碍一起了，结果是成功的，后面用的是GPT-4o写的。
-感觉deepseek很亏，gpt胜在经验多（有大量的编程语料）
+## 已验证的能力
 
-我fork的这个版本主要是增加了如下内容：
-1. 增加了一个啥动作都没有的无障碍服务。
-2. 增加了Android系统的workermanager，15分钟保活一次，也写入了Doze的白名单里面。
+- `:guard` 独立进程已生效
+- 主进程 / native 核心被杀后，应用具备恢复能力
+- `onDestroy() -> 5 秒后自动重启` 链路已通过日志验证成功
+- 无障碍断开后，恢复链可被触发
 
+## 设计目标
 
-     adb日志如下：
-       u0a429 tag=*job*/com.nutomic.syncthingandroid/androidx.work.impl.background.systemjob.SystemJobService
-    Source: uid=u0a429 user=0 pkg=com.nutomic.syncthingandroid
-    JobInfo:
-      Service: com.nutomic.syncthingandroid/androidx.work.impl.background.systemjob.SystemJobService
-      Requires: charging=false batteryNotLow=false deviceIdle=false
-      Extras: mParcelledData.dataSize=248
-      Minimum latency: +14m59s979ms
-      Backoff: policy=1 initial=+30s0ms
-      Has early constraint
-    Required constraints: TIMING_DELAY [0x80000000]
-    Dynamic constraints:
-    Satisfied constraints: DEVICE_NOT_DOZING BACKGROUND_NOT_RESTRICTED WITHIN_QUOTA [0x3400000]
-    Unsatisfied constraints: TIMING_DELAY [0x80000000]
-    Constraint history:
-      -5m2s428ms = BACKGROUND_NOT_RESTRICTED [0x400000]
-      -5m2s428ms = DEVICE_NOT_DOZING BACKGROUND_NOT_RESTRICTED [0x2400000]
-      -5m2s428ms = DEVICE_NOT_DOZING BACKGROUND_NOT_RESTRICTED WITHIN_QUOTA [0x3400000]
-    Doze whitelisted: true
-    Uid: active
-    Tracking: TIME QUOTA
-    Implicit constraints:
-      readyNotDozing: true
-      readyNotRestrictedInBg: true
-      readyComponentEnabled: true
-    Standby bucket: ACTIVE
-    Enqueue time: -5m2s428ms
-    Run time: earliest=+9m57s551ms, latest=none, original latest=none
-    Restricted due to: none.
-    Ready: false (job=false user=true !restricted=true !pending=true !active=true !backingup=true comp=true)
+本项目的目标不是“绝对不被系统杀掉”，而是：
 
+- 将守护能力从主进程中解耦
+- 提高主进程被回收后的恢复机会
+- 保留关键日志，方便后续定位问题
 
+## 当前取舍
 
-      经过一天多的测试，以及导出日志，还是成功的，所以就fork上来，给有需要的bro下载用，不用重复造车了，因为整个github也没人搞这玩意，难道你们都无所谓被杀后台么，我特么从几年前用小米的时候就被疯狂杀过后台。
+为避免启动抖动和 Web GUI 异常，当前版本已经收缩部分激进逻辑：
 
-   注意：
-   需要手动操作的地方：
-   1. 打开syncthing的开机启动服务
-   2. 手动启用syncthing的无障碍服务
-   3. 多任务界面把syncthing锁住
-   4. 电池优化管理去掉自动管理，允许自启动，关联启动，后台活动。这三个不打开好像是workermanager保活机制貌似不起作用。
+- 不再使用多处立即健康检查
+- 不在无障碍连接时主动拉起主服务
+- `KeepAliveWorker` 当前只做保守巡检
+- 保留 `onDestroy()` 秒级重启能力
+
+因此，当前版本更偏向：
+
+> **优先保证稳定启动，再增强恢复能力**
+
+## 说明
+
+- 本仓库当前已可输出 release 版本
+- 不同设备、不同 HarmonyOS / Android 版本下表现可能不同
+- 本项目更适合用于后台保活实验、恢复链验证与日常优化
+
+## 免责声明
+
+该项目为个人维护的实验性增强版本，主要用于后台保活与恢复机制研究。  
+系统极端低内存回收、厂商系统限制等场景下，应用内自救链仍可能失效。

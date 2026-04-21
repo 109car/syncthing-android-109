@@ -28,6 +28,7 @@ public class AppConfigReceiver extends BroadcastReceiver {
      * If startServiceOnBoot is enabled the service must not be stopped. Instead a
      * notification is presented to the user.
      */
+    
     private static final String ACTION_STOP  = "com.nutomic.syncthingandroid.action.STOP";
 
     @Inject NotificationHandler mNotificationHandler;

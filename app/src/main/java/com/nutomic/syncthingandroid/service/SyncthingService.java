@@ -195,6 +195,7 @@ public class SyncthingService extends Service {
     @Override
     public void onCreate() {
         scheduleKeepAliveTask(this);
+        RestartScheduler.cancelRestart(this);
         Log.v(TAG, "onCreate");
         super.onCreate();
         ((SyncthingApp) getApplication()).component().inject(this);
@@ -217,7 +218,7 @@ public class SyncthingService extends Service {
      */
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.v(TAG, "onStartCommand");
+        Log.v(TAG, "onStartCommand action=" + (intent != null ? intent.getAction() : "null") + ", flags=" + flags + ", startId=" + startId);
         if (!mStoragePermissionGranted) {
             Log.e(TAG, "User revoked storage permission. Stopping service.");
             if (mNotificationHandler != null) {
@@ -473,19 +474,32 @@ public class SyncthingService extends Service {
     public SyncthingServiceBinder onBind(Intent intent) {
         return mBinder;
     }
+    @Override
+		public void onTaskRemoved(Intent rootIntent) {
+        boolean selfHeal = shouldSelfHeal();
+        Log.w(TAG, "onTaskRemoved shouldSelfHeal=" + selfHeal);
+
+        if (selfHeal) {
+            RestartScheduler.scheduleRestart(this, 5000L);
+        }
+
+        super.onTaskRemoved(rootIntent);
+    }
 
     /**
      * Stops the native binary.
      * Shuts down RunConditionMonitor instance.
      */
-    @Override
-    public void onDestroy() {
-        Log.v(TAG, "onDestroy");
+		@Override
+		public void onDestroy() {
+        boolean selfHeal = shouldSelfHeal();
+        Log.v(TAG, "onDestroy shouldSelfHeal=" + selfHeal);
+
         if (mRunConditionMonitor != null) {
             /**
              * Shut down the OnDeviceStateChangedListener so we won't get interrupted by run
              * condition events that occur during shutdown.
-             */
+            */
             mRunConditionMonitor.shutdown();
         }
         if (mNotificationHandler != null) {
@@ -494,7 +508,7 @@ public class SyncthingService extends Service {
         if (mStoragePermissionGranted) {
             synchronized (mStateLock) {
                 if (mCurrentState == State.STARTING) {
-                    Log.i(TAG, "Delay shutting down synchting binary until initialisation finished");
+                    Log.i(TAG, "Delay shutting down syncthing binary until initialisation finished");
                     mDestroyScheduled = true;
                 } else {
                     Log.i(TAG, "Shutting down syncthing binary immediately");
@@ -502,14 +516,24 @@ public class SyncthingService extends Service {
                 }
             }
         } else {
-            // If the storage permission got revoked, we did not start the binary and
-            // are in State.INIT requiring an immediate shutdown of this service class.
             Log.i(TAG, "Shutting down syncthing binary due to missing storage permission.");
             shutdown(State.DISABLED, () -> {});
+            selfHeal = false;
         }
+        if (selfHeal) {
+            Log.i(TAG, "schedule restart from onDestroy");
+            RestartScheduler.scheduleRestart(this, 5000L);
+        }
+
         super.onDestroy();
     }
 
+     private boolean shouldSelfHeal() {
+   	     RunConditionCheckResult result = mCurrentCheckResult.get();
+         return mStoragePermissionGranted
+                && result != null
+                && result.isShouldRun();
+     }
     /**
      * Stop Syncthing and all helpers like event processor and api handler.
      *

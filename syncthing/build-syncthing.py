@@ -77,13 +77,13 @@ min_sdk = get_min_sdk(project_dir)
 
 # Make sure all tags are available for git describe
 # https://github.com/syncthing/syncthing-android/issues/872
-subprocess.check_call([
-    'git',
-    '-C',
-    syncthing_dir,
-    'fetch',
-    '--tags'
-])
+#subprocess.check_call([
+#    'git',
+#    '-C',
+#    syncthing_dir,
+#    'fetch',
+#    '--tags'
+#])
 
 for target in BUILD_TARGETS:
 

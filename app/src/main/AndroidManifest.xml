@@ -130,7 +130,8 @@
         <service
     android:name=".service.KeepAliveAccessibilityService"
     android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-    android:exported="false">
+    android:exported="false"
+    android:process=":guard">
     <intent-filter>
         <action android:name="android.accessibilityservice.AccessibilityService" />
     </intent-filter>
@@ -139,12 +140,17 @@
         android:resource="@xml/accessibility_service_config" />
 	</service>
         <receiver android:name=".receiver.BootReceiver"
-            android:exported="false">
+            android:exported="false"
+            >
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name=".receiver.RestartReceiver"
+            android:exported="false"
+            android:process=":guard" />
         <receiver android:name=".receiver.AppConfigReceiver"
             tools:ignore="ExportedReceiver"
             android:exported="true">
